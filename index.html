@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Board Game Timer</title>
+<style>
+:root{--bg:#f6f3ee;--card:#fff;--ink:#1d1a17;--mute:#6b645c;--line:#ddd6cc;--acc:#8c1c1c;--acc2:#b8892b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15110f;--card:#211b18;--ink:#f1ebe3;--mute:#a89f94;--line:#3a312b;--acc:#d04a4a;--acc2:#d9a94a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15110f;--card:#211b18;--ink:#f1ebe3;--mute:#a89f94;--line:#3a312b;--acc:#d04a4a;--acc2:#d9a94a;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+html{font-size:calc(100%*var(--s-body,1))}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--fb,Georgia,"Times New Roman",serif);min-height:100vh}
+#logo{display:block;max-height:calc(70px*var(--s-logo,1));max-width:100%;margin:0 auto 10px}
+#clock.end{color:var(--acc)}
+#logo[hidden]{display:none}
+main{max-width:560px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:calc(1.1rem*var(--s-title,1));letter-spacing:.18em;text-transform:uppercase;text-align:center;color:var(--mute);font-weight:normal;margin:8px 0 18px;font-family:var(--fh,inherit)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:14px}
+.lab{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--acc2)}
+#clock{font-size:calc(clamp(3.4rem,18vw,5.6rem)*var(--s-clock,1));text-align:center;font-variant-numeric:tabular-nums;letter-spacing:.04em;line-height:1.1}
+#bar{height:6px;background:var(--line);border-radius:3px;margin:14px 0 4px;overflow:hidden}
+#fill{height:100%;width:0;background:var(--acc);transition:width .3s linear}
+#status{text-align:center;color:var(--mute);font-size:.9rem;min-height:1.3em}
+.btns{display:flex;gap:10px;margin-top:16px}
+button{flex:1;font:inherit;font-size:1rem;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.go{background:var(--acc);border-color:var(--acc);color:#fff;font-size:1.05rem;padding:14px}
+button:disabled{opacity:.4;cursor:default}
+#event{text-align:center;min-height:110px;display:flex;flex-direction:column;justify-content:center;gap:6px}
+#event .nm{font-size:calc(1.5rem*var(--s-evnm,1));color:var(--acc)}
+#event .txt{font-size:calc(1.2rem*var(--s-evtxt,1));line-height:1.35}
+#event.flash{animation:fl 1.2s ease-out}
+@keyframes fl{0%{box-shadow:0 0 0 0 var(--acc);border-color:var(--acc)}100%{box-shadow:0 0 0 18px transparent}}
+ol#log{margin:8px 0 0;padding-left:1.3em;color:var(--mute);font-size:.95rem}
+ol#log li{margin:4px 0}
+label{display:block;margin:14px 0 6px;font-size:.9rem;color:var(--mute)}
+input[type=number],input[type=text],select{width:100%;font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+input[type=file]{width:100%;font-size:.85rem}
+.two{display:flex;gap:10px}
+.row{display:flex;align-items:center;gap:8px;margin-top:14px}
+.row input{width:20px;height:20px}
+.fr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.85rem;color:var(--mute)}
+.fr button,.ev button{flex:none;padding:6px 10px;font-size:.8rem}
+.ev{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;display:grid;gap:8px}
+.note{font-size:.8rem;color:var(--mute);margin-top:6px}
+#dev .btns{margin-top:18px}
+#bgl{position:fixed;inset:0;z-index:-1;pointer-events:none}
+#bgl div{position:absolute;inset:0;background-repeat:no-repeat}
+.sl{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--mute)}
+.sl span{min-width:5.5em}.sl input{flex:1}.sl b{min-width:3.2em;text-align:right;font-weight:normal}
+.seg{display:flex;gap:8px;margin-bottom:14px}
+.seg button{padding:12px 8px}
+.seg button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.chk{display:flex;gap:12px;flex-wrap:wrap;font-size:.85rem;color:var(--mute)}
+.chk label{display:flex;align-items:center;gap:6px;margin:0}
+.chk input{width:16px;height:16px}
+</style>
+</head>
+<body>
+<div id="bgl"></div><main id="app"></main>
+
+<script type="application/json" id="cfg">{"showClock":true,"music":{"name":"45min.mp3","url":"sound/45min.mp3"},"bell":{"name":"15min.mp3","url":"sound/15min.mp3"},"modes":[{"id":"p5","label":"5 players","minutes":45,"count":4,"gapMin":7,"gapMax":10},{"id":"p6","label":"6 players","minutes":45,"count":4,"gapMin":7,"gapMax":10},{"id":"p7","label":"7 players","minutes":60,"count":4,"gapMin":7,"gapMax":10}],"events":[{"name":"Memento Mori","text":"+1 hour to every player.","sound":{"name":"MementoMori.mp3","url":"sound/MementoMori.mp3"},"modes":["p5","p6","p7"],"max":1},{"name":"Black out A","text":"Infected open a mask card.","sound":{"name":"BlackoutA.mp3","url":"sound/BlackoutA.mp3"},"modes":["p5","p6","p7"],"max":1},{"name":"Black out B","text":"Infected spread a card to any other player.","sound":{"name":"BlackoutB.mp3","url":"sound/BlackoutB.mp3"},"modes":["p5","p6","p7"],"max":1},{"name":"War","text":"All players must duel instantly.","sound":{"name":"War.mp3","url":"sound/War.mp3"},"modes":["p5","p6","p7"],"max":1},{"name":"Scufan","text":"All players must discard 5 cards from hand.","sound":{"name":"Scufan.mp3","url":"sound/Scufan.mp3"},"modes":["p5","p6","p7"],"max":1}],"theme":{"title":"Board Game Timer","titleFont":"","bodyFont":"","bg":"","card":"","ink":"","acc":"","acc2":"","bgImage":null,"logo":null,"titleFile":null,"bodyFile":null,"size":{"body":100,"title":100,"clock":100,"evnm":100,"evtxt":100,"logo":100},"layers":[],"tint":{"color":"#000000","opacity":0}},"intro":{"name":"intro.mp3","url":"sound/intro.mp3"}}</script>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+let CFG=JSON.parse($("cfg").textContent);
+(function(c){const i=c.modes.findIndex(m=>m.id==="p67");if(i>=0){const b=c.modes[i];c.modes.splice(i,1,Object.assign({},b,{id:"p6",label:"6 players"}),Object.assign({},b,{id:"p7",label:"7 players"}));c.events.forEach(e=>{const a=e.modes||[];if(a.includes("p67"))e.modes=a.filter(x=>x!=="p67").concat(["p6","p7"])})}c.events.forEach(e=>{if(e.max==null)e.max=1})})(CFG);
+const DT={title:"Board Game Timer",titleFont:"",bodyFont:"",bg:"",card:"",ink:"",acc:"",acc2:"",bgImage:null,logo:null,titleFile:null,bodyFile:null,size:{body:100,title:100,clock:100,evnm:100,evtxt:100,logo:100},layers:[],tint:{color:"#000000",opacity:0}};
+const dtc=()=>JSON.parse(JSON.stringify(DT));
+CFG.theme=Object.assign(dtc(),CFG.theme);
+let W=JSON.parse(JSON.stringify(CFG));
+let dev=false,assets=null,art=null,cur=null;
+const C=()=>dev?W:CFG;
+const M=()=>C().modes.find(m=>m.id===cur)||C().modes[0];
+
+const TPL=`<img id="logo" alt="" hidden><h1 id="ttl">Board Game Timer</h1>
+<div class="card"><div class="seg" id="seg"></div><div id="clock">45:00</div><div id="bar"><div id="fill"></div></div><div id="status">Ready</div>
+<div class="btns"><button class="go" id="start">Start game</button><button id="stop" disabled>Stop</button></div>
+<div class="btns"><button id="skip" hidden>Skip introduction</button></div></div>
+<div class="card" id="event"><div class="lab">Event</div><div class="nm" id="evnm"></div><div class="txt" id="evtxt">Waiting for the first bell…</div></div>
+<div class="card"><div class="lab">Event log</div><ol id="log"></ol></div>
+<div class="card" id="skiptools" hidden><div class="lab">Test tools (Developer mode only)</div>
+<div class="fr" style="margin-top:10px"><button data-sk="add60">+1 min</button><button data-sk="add300">+5 min</button><button data-sk="nextev">Next event in 1.5 s</button><button data-sk="main10">Main timer: 10 s left</button><button data-sk="toend">Skip to end game</button><button data-sk="end10">End game: 10 s left</button><button data-sk="stopsnd">Skip current sound</button></div>
+<div class="note">Start a game first, then use these to jump through time. Players never see this panel.</div></div>
+<div id="dev" hidden></div>
+<p style="text-align:center"><button id="devbtn" hidden style="flex:none;font-size:.85rem;padding:8px 14px">Developer mode</button></p>`;
+$("app").innerHTML=TPL;
+function renderBg(t){
+  const b=$("bgl");b.innerHTML="";
+  (t.layers||[]).forEach(L=>{if(!L.img)return;const d=document.createElement("div"),f=L.fit||"cover";
+    d.style.backgroundImage='url("'+L.img.url+'")';d.style.opacity=(L.opacity==null?100:L.opacity)/100;
+    d.style.backgroundSize=f==="tile"?"200px":f==="stretch"?"100% 100%":f;
+    d.style.backgroundRepeat=f==="tile"?"repeat":"no-repeat";d.style.backgroundPosition=L.pos||"center";b.appendChild(d)});
+  if(t.tint&&t.tint.opacity>0){const d=document.createElement("div");d.style.background=t.tint.color||"#000";d.style.opacity=t.tint.opacity/100;b.appendChild(d)}
+}
+function applyTheme(t){
+  const r=document.documentElement.style,set=(k,v)=>v?r.setProperty(k,v):r.removeProperty(k);
+  set("--bg",t.bg);set("--card",t.card);set("--ink",t.ink);set("--acc",t.acc);set("--acc2",t.acc2);
+  set("--fh",t.titleFile?'"TitleCustom",Georgia,serif':t.titleFont?`"${t.titleFont}",Georgia,serif`:"");
+  set("--fb",t.bodyFile?'"BodyCustom",Georgia,serif':t.bodyFont?`"${t.bodyFont}",Georgia,serif`:"");
+  const sc=t.size||{};["body","title","clock","evnm","evtxt","logo"].forEach(k=>set("--s-"+k,sc[k]&&sc[k]!=100?String(sc[k]/100):""));
+  renderBg(t);
+  document.querySelectorAll(".gf").forEach(l=>l.remove());
+  const ff=[["titleFile","TitleCustom"],["bodyFile","BodyCustom"]].filter(a=>t[a[0]]);
+  if(ff.length){const st=document.createElement("style");st.className="gf";st.textContent=ff.map(a=>`@font-face{font-family:"${a[1]}";src:url("${t[a[0]].url}")}`).join("");document.head.appendChild(st)}
+  [t.titleFont,t.bodyFont].filter(Boolean).forEach(f=>{const l=document.createElement("link");l.rel="stylesheet";l.className="gf";l.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(f).replace(/%20/g,"+")+"&display=swap";document.head.appendChild(l)});
+  $("ttl").textContent=t.title||DT.title;document.title=t.title||DT.title;
+  const lg=$("logo");if(t.logo){lg.src=t.logo.url;lg.hidden=false}else{lg.hidden=true;lg.removeAttribute("src")}
+}
+applyTheme(CFG.theme);
+
+/* ---------- audio ---------- */
+let ctx=null;
+function ac(){if(!ctx){const A=window.AudioContext||window.webkitAudioContext;ctx=new A()}if(ctx.state==="suspended")ctx.resume();return ctx}
+function partial(f,dur,gain,delay){const c=ac(),o=c.createOscillator(),g=c.createGain(),t=c.currentTime+(delay||0);o.type="sine";o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(gain,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(g).connect(c.destination);o.start(t);o.stop(t+dur+0.05)}
+function bellSound(b,d){[1,2.76,5.4,8.9].forEach((m,i)=>partial(b*m,2.6/(i+1),0.22/(i+1),d))}
+const synth=[()=>bellSound(660),()=>{bellSound(220);bellSound(330,0.15)},()=>{[523,659,784].forEach((f,i)=>partial(f,1.2,0.2,i*0.18))},()=>{[392,294].forEach((f,i)=>partial(f,1.4,0.25,i*0.3))}];
+const cache={};
+function aud(url){if(!cache[url]){const a=new Audio(url);a.preload="auto";cache[url]=a}return cache[url]}
+function play(url){const a=aud(url);a.loop=false;a.currentTime=0;a.play().catch(()=>{})}
+function unlock(c){const us=[c.bell].concat(c.events.map(e=>e.sound)).filter(Boolean).map(s=>s.url);us.forEach(u=>{const a=aud(u);a.muted=true;a.play().then(()=>{a.pause();a.currentTime=0;a.muted=false}).catch(()=>{a.muted=false})})}
+let bg=null;
+function startBg(c){
+  if(c.music){const a=aud(c.music.url);a.loop=true;a.currentTime=0;a.play().catch(()=>{});bg={el:a};return}
+  const x=ac(),g=x.createGain();g.gain.value=0.05;g.connect(x.destination);
+  const o1=x.createOscillator(),o2=x.createOscillator(),l=x.createOscillator(),lg=x.createGain();
+  o1.frequency.value=55;o2.type="triangle";o2.frequency.value=82.5;l.frequency.value=0.15;lg.gain.value=0.03;
+  l.connect(lg).connect(g.gain);o1.connect(g);o2.connect(g);o1.start();o2.start();l.start();bg={nodes:[o1,o2,l]};
+}
+function stopBg(){if(!bg)return;if(bg.el){bg.el.pause();bg.el.loop=false}if(bg.nodes)bg.nodes.forEach(n=>{try{n.stop()}catch(e){}});bg=null}
+
+/* ---------- game ---------- */
+const pad=n=>String(n).padStart(2,"0");
+function fmt(ms){const s=Math.max(0,Math.ceil(ms/1000));return pad(Math.floor(s/60))+":"+pad(s%60)}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+let S={run:false,t0:0,len:0,times:[],picks:[],n:0,timer:null,last:-1,c:null};
+function showClock(ms){$("clock").textContent=C().showClock?fmt(ms):"••:••"}
+function startGame(){
+  const c=C();S.c=JSON.parse(JSON.stringify(c));
+  const m=M();S.m=m;S.len=Math.max(1,m.minutes)*60000;
+  let t=0;S.times=[];
+  for(let i=0;i<m.count;i++){t+=(m.gapMin+Math.random()*Math.max(0,m.gapMax-m.gapMin))*60000;if(t>=S.len-5000)break;S.times.push(t)}
+  let lst=c.events.filter(e=>(e.modes||[]).includes(m.id));if(!lst.length)lst=c.events;if(!lst.length)lst=[{name:"Event",text:"",sound:null}];
+  const cnt=lst.map(()=>0);
+  S.picks=S.times.map(()=>{let ok=lst.map((e,i)=>i).filter(i=>!(lst[i].max>0)||cnt[i]<lst[i].max);if(!ok.length)ok=lst.map((e,i)=>i);const i=ok[Math.floor(Math.random()*ok.length)];cnt[i]++;return lst[i]});
+  S.n=0;S.last=-1;S.run=true;S.hold=false;S.t0=Date.now();S.phase="main";S.endLen=Math.max(0,m.endMinutes==null?15:m.endMinutes)*60000;$("clock").classList.remove("end");
+  $("log").innerHTML="";$("evnm").textContent="";$("evtxt").textContent="Waiting for the first bell…";
+  $("start").disabled=true;$("stop").disabled=false;$("status").textContent="Game in progress";renderSeg();
+  ac();unlock(S.c);
+  if(S.c.intro){
+    const id=(S.hid=(S.hid||0)+1),a=aud(S.c.intro.url);S.introA=a;
+    const rel=()=>{if(S.hid!==id)return;S.rel=null;$("skip").hidden=true;if(S.hold){S.hold=false;S.t0+=Date.now()-S.hs}$("status").textContent="Game in progress";$("evtxt").textContent="Waiting for the first bell…";if(!S.bgOn){S.bgOn=true;startBg(S.c)}};
+    S.rel=rel;S.bgOn=false;
+    $("skip").hidden=false;$("status").textContent="Introduction playing";$("evtxt").textContent="Introduction…";
+    $("clock").textContent=S.c.showClock?fmt(S.len):"••:••";
+    if(S.c.introWait!==false){S.hold=true;S.hs=Date.now()}else{S.bgOn=true;startBg(S.c)}
+    a.loop=false;a.currentTime=0;a.onended=rel;a.onerror=rel;
+    const pr=a.play();if(pr&&pr.catch)pr.catch(rel);
+    setTimeout(rel,600000);
+  }else startBg(S.c);
+  S.timer=setInterval(tick,250);tick();
+}
+function tick(){
+  if(S.hold)return;
+  const el=Date.now()-S.t0;
+  if(S.phase==="main"){
+    $("clock").textContent=S.c.showClock?fmt(S.len-el):"••:••";
+    $("fill").style.width=Math.min(100,el/S.len*100)+"%";
+    if(S.n<S.times.length&&el>=S.times[S.n])fire(el);
+    if(el>=S.len){if(S.endLen>0)startEnd();else finish()}
+  }else{
+    const e2=el-S.len;
+    $("clock").textContent=S.c.showClock?fmt(S.endLen-e2):"••:••";
+    $("fill").style.width=Math.min(100,e2/S.endLen*100)+"%";
+    if(e2>=S.endLen)finish();
+  }
+}
+function startEnd(){
+  S.phase="end";
+  if(S.c.bell)play(S.c.bell.url);else bellSound(196,0);
+  if(S.c.endMusic){stopBg();const a=aud(S.c.endMusic.url);a.loop=true;a.currentTime=0;a.play().catch(()=>{});bg={el:a}}
+  const b=$("event");b.classList.remove("flash");void b.offsetWidth;b.classList.add("flash");
+  $("evnm").textContent="End game";$("evtxt").textContent=S.c.endText||"The final phase begins.";
+  $("clock").classList.add("end");$("status").textContent="End game in progress";$("fill").style.width="0";
+  if(navigator.vibrate)navigator.vibrate(500);
+}
+function fire(el){
+  const e=S.picks[S.n];S.n++;
+  S.hold=true;S.hs=Date.now();S.hid=(S.hid||0)+1;
+  const id=S.hid,rel=()=>{if(!S.hold||S.hid!==id)return;S.hold=false;S.t0+=Date.now()-S.hs;if(S.run)$("status").textContent=S.n+" of "+S.times.length+" events done"};
+  if(e.sound){const a=aud(e.sound.url);a.loop=false;a.currentTime=0;S.rel=rel;S.curA=a;a.onended=rel;a.onerror=rel;a.play().catch(rel);setTimeout(rel,180000)}
+  else{let i;do{i=Math.floor(Math.random()*synth.length)}while(i===S.last);S.last=i;synth[i]();S.rel=rel;S.curA=null;setTimeout(rel,3500)}
+  const b=$("event");b.classList.remove("flash");void b.offsetWidth;b.classList.add("flash");
+  $("evnm").textContent=e.name;$("evtxt").textContent=e.text;
+  const li=document.createElement("li");li.textContent=e.name+" ("+fmt(el)+" elapsed)";$("log").appendChild(li);
+  $("status").textContent=S.n+" of "+S.times.length+" events done, timer paused while the sound plays";
+  if(navigator.vibrate)navigator.vibrate(300);
+}
+function finish(){
+  clearInterval(S.timer);S.run=false;stopBg();
+  if(S.c.bell)play(S.c.bell.url);else[0,1.6,3.2].forEach(d=>bellSound(196,d));
+  $("clock").textContent="00:00";$("clock").classList.remove("end");$("fill").style.width="100%";
+  $("evnm").textContent="";$("evtxt").textContent="Time’s up.";$("status").textContent="Game over";
+  $("start").disabled=false;$("stop").disabled=true;renderSeg();
+}
+function stopGame(){
+  clearInterval(S.timer);S.run=false;stopBg();S.hold=false;S.hid=(S.hid||0)+1;S.rel=null;if(S.introA)S.introA.pause();$("skip").hidden=true;
+  $("status").textContent="Stopped";$("start").disabled=false;$("stop").disabled=true;$("fill").style.width="0";$("clock").classList.remove("end");
+  renderSeg();showClock(M().minutes*60000);
+}
+$("start").onclick=startGame;$("stop").onclick=stopGame;
+$("skip").onclick=()=>{if(S.introA)S.introA.pause();if(S.rel)S.rel()};
+function jump(k){
+  const ref=S.hold?S.hs:Date.now(),el=ref-S.t0;let X=null;
+  if(k==="stopsnd"){if(S.curA)S.curA.pause();if(S.introA)S.introA.pause();if(S.rel)S.rel();return}
+  if(k==="add60")X=el+60000;
+  else if(k==="add300")X=el+300000;
+  else if(k==="nextev"){if(S.phase==="main"&&S.n<S.times.length)X=Math.max(el,S.times[S.n]-1500)}
+  else if(k==="main10")X=Math.max(el,S.len-10000);
+  else if(k==="toend")X=Math.max(el,S.len+300);
+  else if(k==="end10")X=Math.max(el,S.len+S.endLen-10000);
+  if(X==null)return;
+  if(k!=="nextev")while(S.n<S.times.length&&S.times[S.n]<X){const li=document.createElement("li");li.textContent="Skipped by test tool: "+S.picks[S.n].name;$("log").appendChild(li);S.n++}
+  S.t0=ref-X;if(!S.hold)tick();
+}
+$("skiptools").addEventListener("click",e=>{const k=e.target.dataset.sk;if(k&&S.run)jump(k)});
+function renderSeg(){
+  const sg=$("seg");if(!cur)cur=C().modes[0].id;
+  sg.innerHTML=C().modes.map(m=>`<button data-mode="${m.id}" class="${m.id===cur?"on":""}" ${S.run?"disabled":""}>${esc(m.label)}</button>`).join("");
+}
+$("seg").addEventListener("click",e=>{const id=e.target.dataset.mode;if(id&&!S.run){cur=id;renderSeg();showClock(M().minutes*60000)}});
+renderSeg();showClock(M().minutes*60000);
+
+/* ---------- developer mode (owner/editors only) ---------- */
+const addrVal=o=>o&&o.url&&o.url.indexOf("data:")!==0?esc(o.url):"";
+function fileRow(k,o){return `<div class="fr"><input type="file" accept="audio/*" data-up="${k}"><span>${o?esc(o.name):"built-in sound"}</span>${o?`<button data-play="${k}">Play</button><button data-clr="${k}">Remove</button>`:""}<input type="text" style="flex:1 1 100%" data-url="${k}" value="${addrVal(o)}" placeholder="or type a file address, e.g. sounds/music.mp3"></div>`}
+const FONTS=["Cinzel","Cormorant Garamond","UnifrakturCook","Playfair Display","IM Fell English","Special Elite","Lora","Oswald","Inter"];
+const fsel=(k,v)=>`<input type="text" list="fonts" data-t="${k}" value="${esc(v)}" placeholder="Default. Type any Google Font name">`;
+const fontRow=(k,o)=>`<div class="fr"><input type="file" accept=".woff2,.woff,.ttf,.otf" data-tup="${k}"><span>${o?esc(o.name):"no font file"}</span>${o?`<button data-tclr="${k}">Remove</button>`:""}</div>`;
+const imgRow=(k,o)=>`<div class="fr"><input type="file" accept="image/*" data-tup="${k}"><span>${o?esc(o.name):"none"}</span>${o?`<button data-tclr="${k}">Remove</button>`:""}</div>`;
+function themeHtml(){
+  const t=W.theme;
+  return `<label>Theme (look of the page)</label><datalist id="fonts">${FONTS.map(f=>`<option value="${f}">`).join("")}</datalist><div class="ev">
+<div class="note">Page title</div><input type="text" data-t="title" value="${esc(t.title)}">
+<div class="note">Title font</div>${fsel("titleFont",t.titleFont)}<div class="note">Or upload your own title font file (.woff2, .ttf, .otf)</div>${fontRow("titleFile",t.titleFile)}
+<div class="note">Text font</div>${fsel("bodyFont",t.bodyFont)}<div class="note">Or upload your own text font file (.woff2, .ttf, .otf)</div>${fontRow("bodyFile",t.bodyFile)}
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px">${[["bg","Background","#f6f3ee"],["card","Cards","#ffffff"],["ink","Text","#1d1a17"],["acc","Accent","#8c1c1c"],["acc2","Highlight","#b8892b"]].map(a=>`<div><div class="note">${a[1]}</div><input type="color" data-t="${a[0]}" value="${t[a[0]]||a[2]}" style="width:100%;height:38px;padding:2px"></div>`).join("")}</div>
+${sizesHtml()}
+${layersHtml()}
+<div class="note">Logo image</div>${imgRow("logo",t.logo)}
+<button data-treset="1">Reset theme to default</button></div>`;
+}
+function sizesHtml(){
+  const z=W.theme.size||{};
+  return `<div class="note">Text sizes (percent)</div>`+[["body","Overall"],["title","Title"],["clock","Clock"],["evnm","Event name"],["evtxt","Event text"],["logo","Logo"]].map(a=>`<div class="sl"><span>${a[1]}</span><input type="range" min="50" max="${a[0]==="logo"?300:200}" step="5" data-sz="${a[0]}" value="${z[a[0]]||100}"><b>${z[a[0]]||100}%</b></div>`).join("");
+}
+function layersHtml(){
+  const t=W.theme,L=t.layers||[];
+  return `<div class="note">Background layers. Layer 1 is the bottom, the last layer is on top. Keep images small.</div>`+L.map((l,i)=>`<div class="ev"><div class="fr"><b>Layer ${i+1}</b><span>${esc(l.img.name)}</span><button data-lup="${i}">Raise</button><button data-ldn="${i}">Lower</button><button data-ldel="${i}">Delete</button></div>
+<div class="sl"><span>Opacity</span><input type="range" min="0" max="100" step="5" data-ly="opacity" data-i="${i}" value="${l.opacity}"><b>${l.opacity}%</b></div>
+<div class="two"><select data-ly="fit" data-i="${i}">${["cover","contain","stretch","tile"].map(f=>`<option ${l.fit===f?"selected":""}>${f}</option>`).join("")}</select><select data-ly="pos" data-i="${i}">${["center","top","bottom","left","right"].map(f=>`<option ${l.pos===f?"selected":""}>${f}</option>`).join("")}</select></div></div>`).join("")+
+`<div class="fr"><span>Add layer:</span><input type="file" accept="image/*" data-ladd="1"></div>
+<div class="note">Color tint over all layers (darken or color the background)</div>
+<div class="two"><input type="color" data-tint="color" value="${t.tint.color}" style="height:38px;padding:2px"><div class="sl" style="flex:1"><input type="range" min="0" max="100" step="5" data-tint="opacity" value="${t.tint.opacity}"><b>${t.tint.opacity}%</b></div></div>`;
+}
+function renderDev(){
+  const d=$("dev");d.hidden=!dev;if(!dev)return;
+  d.innerHTML=`<div class="card"><div class="lab">Developer settings</div>
+<div class="note">Players never see this. Your changes only become part of the page when you press Export and use the new file.</div>
+<div class="note">${draftNote}</div>
+<div class="row"><input type="checkbox" data-k="showClock" ${W.showClock?"checked":""}><span>Show countdown to players</span></div>
+<div class="note">Big audio files: instead of uploading a file into the page, type its file address (for example sounds/music.mp3). The page then loads the file from your website when it plays, so the page itself stays small. Put those audio files on your website next to the page.</div>
+<label>Introduction audio (plays when you press Start game)</label>${fileRow("intro",W.intro)}
+<div class="row"><input type="checkbox" data-k="introWait" ${W.introWait!==false?"checked":""}><span>Timer starts after the introduction finishes</span></div>
+<div class="note">If this is off, the introduction plays while the timer and music already run.</div>
+<label>Background loop music (all modes)</label>${fileRow("music",W.music)}
+<label>Bell (rings when the main timer ends and at game over)</label>${fileRow("bell",W.bell)}
+<label>End game music (optional, replaces the loop music during the end game)</label>${fileRow("endMusic",W.endMusic)}
+<label>End game message</label><input type="text" data-w="endText" value="${esc(W.endText||"")}" placeholder="The final phase begins.">
+${themeHtml()}
+<label>Player modes</label>
+${W.modes.map((m,i)=>`<div class="ev"><input type="text" data-m="label" data-i="${i}" value="${esc(m.label)}">
+<div class="two"><div><div class="note">Minutes</div><input type="number" data-m="minutes" data-i="${i}" value="${m.minutes}"></div><div><div class="note">Events</div><input type="number" data-m="count" data-i="${i}" value="${m.count}"></div></div>
+<div class="two"><div><div class="note">Gap min (minutes)</div><input type="number" data-m="gapMin" data-i="${i}" value="${m.gapMin}"></div><div><div class="note">Gap max (minutes)</div><input type="number" data-m="gapMax" data-i="${i}" value="${m.gapMax}"></div></div>
+<div class="note">End game minutes after the main timer (0 = no end game)</div><input type="number" min="0" data-m="endMinutes" data-i="${i}" value="${m.endMinutes==null?15:m.endMinutes}"></div>`).join("")}
+<label>Events (each has its own sound effect and the modes it appears in)</label>
+${W.events.map((e,i)=>`<div class="ev"><input type="text" data-e="name" data-i="${i}" value="${esc(e.name)}" placeholder="Event name"><input type="text" data-e="text" data-i="${i}" value="${esc(e.text)}" placeholder="What players must do">
+<div class="chk">${W.modes.map(m=>`<label><input type="checkbox" data-em="${i}" data-mid="${m.id}" ${(e.modes||[]).includes(m.id)?"checked":""}>${esc(m.label)}</label>`).join("")}</div>
+<div class="note">Max times per game (0 = no limit)</div><input type="number" min="0" data-e="max" data-i="${i}" value="${e.max==null?1:e.max}">
+<div class="fr"><input type="file" accept="audio/*" data-eup="${i}"><span>${e.sound?esc(e.sound.name):"built-in sound"}</span>${e.sound?`<button data-eplay="${i}">Play</button><button data-eclr="${i}">Remove sound</button>`:""}<input type="text" style="flex:1 1 100%" data-eurl="${i}" value="${addrVal(e.sound)}" placeholder="or type a file address, e.g. sounds/war.mp3"><button data-edel="${i}">Delete event</button></div></div>`).join("")}
+<button id="addev" style="width:100%">Add event</button>
+<div class="note">Tip: pick a mode above, set its minutes to 2 and gaps to 0.2 and 0.4, then press Start game to test quickly.</div>
+<div class="btns"><button class="go" id="export">Export finished HTML file</button></div><div class="note" id="msg"></div><div class="btns"><button id="discard">Discard draft and reload</button></div></div>`;
+}
+function upload(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r({url:fr.result,name:f.name});fr.onerror=()=>r(null);fr.readAsDataURL(f)})}
+function build(){
+  const c=document.documentElement.cloneNode(true);
+  c.querySelector("#app").innerHTML="";c.querySelector("#bgl").innerHTML="";c.removeAttribute("style");c.querySelectorAll(".gf").forEach(l=>l.remove());
+  c.querySelector("title").textContent=W.theme.title||"Board Game Timer";
+  c.querySelector("#cfg").textContent=JSON.stringify(W).replace(/</g,"\\u003c");
+  return "<!DOCTYPE html>\n"+c.outerHTML;
+}
+function doExport(){
+  const html=build(),a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([html],{type:"text/html"}));
+  a.download=((W.theme.title||"").replace(/[^\w\- ]+/g,"").trim()||"timer")+".html";
+  document.body.appendChild(a);a.click();a.remove();
+  $("msg").textContent="Exported "+(html.length/1048576).toFixed(1)+" MB. Upload this file to your website.";
+}
+const dv=$("dev");
+dv.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.dataset.w)W[t.dataset.w]=t.value;
+  if(t.dataset.t){W.theme[t.dataset.t]=t.value;applyTheme(W.theme)}
+  if(t.dataset.sz){W.theme.size[t.dataset.sz]=+t.value;t.nextElementSibling.textContent=t.value+"%";applyTheme(W.theme)}
+  if(t.dataset.ly){const l=W.theme.layers[+t.dataset.i],k=t.dataset.ly;l[k]=k==="opacity"?+t.value:t.value;if(k==="opacity")t.nextElementSibling.textContent=t.value+"%";applyTheme(W.theme)}
+  if(t.dataset.tint){const k=t.dataset.tint;W.theme.tint[k]=k==="opacity"?+t.value:t.value;if(k==="opacity")t.nextElementSibling.textContent=t.value+"%";applyTheme(W.theme)}
+  if(t.dataset.k)W[t.dataset.k]=t.checked;
+  if(t.dataset.m){const m=W.modes[+t.dataset.i],k=t.dataset.m;m[k]=k==="label"?t.value:(parseFloat(t.value)||0);if(k==="label")renderSeg();else if(!S.run)showClock(M().minutes*60000)}
+  if(t.dataset.e)W.events[+t.dataset.i][t.dataset.e]=t.dataset.e==="max"?(parseFloat(t.value)||0):t.value;
+  if(t.dataset.em!==undefined){const ev=W.events[+t.dataset.em];ev.modes=(ev.modes||[]).filter(x=>x!==t.dataset.mid);if(t.checked)ev.modes.push(t.dataset.mid)}
+});
+dv.addEventListener("change",async e=>{
+  const t=e.target;
+  if(t.dataset.url!==undefined||t.dataset.eurl!==undefined){
+    const v=t.value.trim(),o=v?{name:v.split("/").pop(),url:v}:null;
+    if(t.dataset.url!==undefined)W[t.dataset.url]=o;else W.events[+t.dataset.eurl].sound=o;
+    renderDev();return;
+  }
+  if(t.type!=="file"||!t.files[0])return;
+  const o=await upload(t.files[0]);if(!o)return;
+  if(t.dataset.ladd){W.theme.layers.push({img:o,opacity:100,fit:"cover",pos:"center"});applyTheme(W.theme)}else if(t.dataset.tup){W.theme[t.dataset.tup]=o;applyTheme(W.theme)}else if(t.dataset.up)W[t.dataset.up]=o;else if(t.dataset.eup)W.events[+t.dataset.eup].sound=o;
+  renderDev();
+});
+dv.addEventListener("click",async e=>{
+  const d=e.target.dataset;
+  if(d.tclr){W.theme[d.tclr]=null;applyTheme(W.theme);renderDev()}
+  if(d.treset){W.theme=dtc();applyTheme(W.theme);renderDev()}
+  if(d.ldel!==undefined){W.theme.layers.splice(+d.ldel,1);applyTheme(W.theme);renderDev()}
+  if(d.lup!==undefined||d.ldn!==undefined){const L=W.theme.layers,i=+(d.lup!==undefined?d.lup:d.ldn),j=d.lup!==undefined?i+1:i-1;if(j>=0&&j<L.length){[L[i],L[j]]=[L[j],L[i]];applyTheme(W.theme);renderDev()}}
+  if(d.play)play(W[d.play].url);
+  if(d.clr){W[d.clr]=null;renderDev()}
+  if(d.eplay)play(W.events[+d.eplay].sound.url);
+  if(d.eclr){W.events[+d.eclr].sound=null;renderDev()}
+  if(d.edel){W.events.splice(+d.edel,1);renderDev()}
+  if(e.target.id==="addev"){W.events.push({name:"New event",text:"",sound:null,max:1,modes:W.modes.map(m=>m.id)});renderDev()}
+  if(e.target.id==="export")doExport();
+  if(e.target.id==="discard"){window.noDraft=true;try{localStorage.removeItem(DK)}catch(x){}location.reload()}
+});
+var draftNote="Sounds and images are stored inside the exported file, so large files make a large page.";
+const DK="rdt-draft:"+location.pathname;let dtm=null,restored=false;
+function saveDraft(){if(window.noDraft)return;clearTimeout(dtm);dtm=setTimeout(()=>{try{localStorage.setItem(DK,JSON.stringify(W))}catch(e){draftNote="Draft too large to remember in the browser. Export before closing this tab.";const m=$("msg");if(m)m.textContent=draftNote}},600)}
+["input","change","click"].forEach(ev=>$("dev").addEventListener(ev,()=>setTimeout(saveDraft,0)));
+$("devbtn").onclick=()=>{
+  dev=!dev;$("skiptools").hidden=!dev;
+  if(dev&&!restored){restored=true;try{const d=localStorage.getItem(DK);if(d){W=JSON.parse(d);W.theme=Object.assign(dtc(),W.theme);draftNote="Restored your unsaved draft from this browser."}}catch(e){}}
+  applyTheme(C().theme);renderDev();renderSeg();if(!S.run)showClock(M().minutes*60000);
+};
+function chk(){$("devbtn").hidden=location.hash!=="#developer"}
+chk();addEventListener("hashchange",chk);
+</script>
+
+
+</body></html>
